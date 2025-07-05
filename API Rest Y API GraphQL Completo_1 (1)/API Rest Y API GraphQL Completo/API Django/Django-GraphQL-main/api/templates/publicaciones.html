@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Publicaciones</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+  <style>
+    body {
+      padding: 2rem;
+    }
+    .publicacion {
+      margin-bottom: 1.5rem;
+      padding: 1rem;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+  </style>
+</head>
+<body>
+
+  <h1 class="title">📚 Publicaciones Recientes</h1>
+  <div id="contenedor-publicaciones"></div>
+
+  <script>
+    async function cargarPublicaciones() {
+      const query = `
+        query {
+          todasPublicaciones {
+            id
+            titulo
+            contenido
+            creadoEn
+          }
+        }
+      `;
+
+      try {
+        const response = await fetch("/graphql/", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ query })
+        });
+
+        const data = await response.json();
+        const contenedor = document.getElementById("contenedor-publicaciones");
+        contenedor.innerHTML = "";
+
+        if (data.data && data.data.todasPublicaciones.length > 0) {
+          data.data.todasPublicaciones.forEach(pub => {
+            contenedor.innerHTML += `
+              <div class="publicacion box">
+                <h2 class="title is-4">${pub.titulo}</h2>
+                <p>${pub.contenido}</p>
+                <p class="is-size-7 has-text-grey">
+                  Publicado el: ${new Date(pub.creadoEn).toLocaleString()}
+                </p>
+              </div>
+            `;
+          });
+        } else {
+          contenedor.innerHTML = "<p>No hay publicaciones disponibles.</p>";
+        }
+
+      } catch (error) {
+        console.error("Error al cargar publicaciones:", error);
+        document.getElementById("contenedor-publicaciones").innerHTML = "<p>Error al conectar con el servidor.</p>";
+      }
+    }
+
+    window.onload = cargarPublicaciones;
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Lista de Publicaciones</title>
+</head>
+<body>
+  <h1>📚 Lista de Publicaciones</h1>
+  <ul id="lista-publicaciones"></ul>
+  <a href="/">Crear nueva publicación</a>
+
+  <script>
+    const lista = document.getElementById("lista-publicaciones");
+
+    async function cargarPublicaciones() {
+      const query = `
+        query {
+          obtenerPublicaciones {
+            id
+            titulo
+            contenido
+          }
+        }
+      `;
+
+      const res = await fetch("/graphql", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query }),
+      });
+
+      const data = await res.json();
+
+      lista.innerHTML = "";
+      if (data.data?.obtenerPublicaciones) {
+        data.data.obtenerPublicaciones.forEach((pub) => {
+          const li = document.createElement("li");
+          li.innerHTML = `<strong>${pub.titulo}</strong>: ${pub.contenido}`;
+          lista.appendChild(li);
+        });
+      } else {
+        lista.innerHTML = "<li>Error cargando publicaciones</li>";
+        console.error("Error:", data);
+      }
+    }
+
+    cargarPublicaciones();
+  </script>
+</body>
+</html>

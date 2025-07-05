@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>Estados Financieros Múltiples Empresas</title>
+<style>
+  body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+  h1 { color: #333; }
+  input, button { padding: 8px; font-size: 16px; width: 400px; }
+  table { border-collapse: collapse; width: 100%; margin-top: 10px; background: white; }
+  th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+  th { background: #28a745; color: white; }
+  .empresa { margin-bottom: 50px; background: white; padding: 15px; border-radius: 6px; box-shadow: 0 0 5px rgba(0,0,0,0.1); }
+</style>
+</head>
+<body>
+  <h1>Estados Financieros Automáticos - Hasta 25 Empresas</h1>
+  <label for="symbols">Símbolos de empresas (máximo 25, ej. AAPL,MSFT,TSLA):</label><br />
+  <input type="text" id="symbols" value="AAPL,MSFT,TSLA" />
+  <button onclick="cargarEstados()">Cargar</button>
+
+  <div id="estados"></div>
+
+<script>
+  const API_KEY = "bGbrp5kHP1UIDakv1rVdRWWUNEO5NtbA";
+
+  async function cargarEstados() {
+    const input = document.getElementById("symbols").value.trim().toUpperCase();
+    const symbols = input.split(",").map(s => s.trim()).filter(s => s.length > 0);
+
+    if(symbols.length === 0) {
+      alert("Por favor ingresa al menos un símbolo.");
+      return;
+    }
+    if(symbols.length > 25) {
+      alert("Solo puedes consultar hasta 25 empresas a la vez.");
+      return;
+    }
+
+    const estadosDiv = document.getElementById("estados");
+    estadosDiv.innerHTML = "<p>Cargando datos...</p>";
+    estadosDiv.scrollIntoView({behavior: "smooth"});
+
+    estadosDiv.innerHTML = "";
+
+    for (const symbol of symbols) {
+      const empresaDiv = document.createElement("div");
+      empresaDiv.classList.add("empresa");
+      empresaDiv.innerHTML = `<h2>${symbol} - Cargando...</h2>`;
+      estadosDiv.appendChild(empresaDiv);
+
+      try {
+        // Consultar balance sheet
+        const balanceUrl = `https://financialmodelingprep.com/api/v3/balance-sheet-statement/${symbol}?limit=1&apikey=${API_KEY}`;
+        const balanceRes = await fetch(balanceUrl);
+        const balanceData = await balanceRes.json();
+
+        // Consultar income statement
+        const incomeUrl = `https://financialmodelingprep.com/api/v3/income-statement/${symbol}?limit=1&apikey=${API_KEY}`;
+        const incomeRes = await fetch(incomeUrl);
+        const incomeData = await incomeRes.json();
+
+        if(!Array.isArray(balanceData) || balanceData.length === 0) {
+          empresaDiv.innerHTML = `<h2>${symbol}</h2><p>No se encontraron datos de balance general.</p>`;
+          continue;
+        }
+        if(!Array.isArray(incomeData) || incomeData.length === 0) {
+          empresaDiv.innerHTML = `<h2>${symbol}</h2><p>No se encontraron datos de estado de resultados.</p>`;
+          continue;
+        }
+
+        const balance = balanceData[0];
+        const income = incomeData[0];
+
+        empresaDiv.innerHTML = `
+          <h2>${symbol}</h2>
+
+          <h3>Balance General (${balance.date})</h3>
+          <table>
+            <tr><th>Cuenta</th><th>Valor (USD)</th></tr>
+            <tr><td>Activo Total</td><td>${balance.totalAssets?.toLocaleString() ?? "N/D"}</td></tr>
+            <tr><td>Pasivo Total</td><td>${balance.totalLiabilities?.toLocaleString() ?? "N/D"}</td></tr>
+            <tr><td>Patrimonio Neto</td><td>${balance.totalStockholdersEquity?.toLocaleString() ?? "N/D"}</td></tr>
+            <tr><td><strong>Activo = Pasivo + Patrimonio</strong></td>
+                <td><strong>${((balance.totalLiabilities ?? 0) + (balance.totalStockholdersEquity ?? 0)).toLocaleString()}</strong></td>
+            </tr>
+          </table>
+
+          <h3>Estado de Resultados (${income.date})</h3>
+          <table>
+            <tr><th>Cuenta</th><th>Valor (USD)</th></tr>
+            <tr><td>Ingresos Totales</td><td>${income.revenue?.toLocaleString() ?? "N/D"}</td></tr>
+            <tr><td>Costo de Ventas</td><td>${income.costOfRevenue?.toLocaleString() ?? "N/D"}</td></tr>
+            <tr><td>Utilidad Bruta</td><td>${income.grossProfit?.toLocaleString() ?? "N/D"}</td></tr>
+            <tr><td>Gastos Operativos</td><td>${income.operatingExpenses?.toLocaleString() ?? "N/D"}</td></tr>
+            <tr><td>Utilidad Operativa</td><td>${income.operatingIncome?.toLocaleString() ?? "N/D"}</td></tr>
+            <tr><td>Utilidad Neta</td><td>${income.netIncome?.toLocaleString() ?? "N/D"}</td></tr>
+          </table>
+        `;
+
+      } catch (error) {
+        empresaDiv.innerHTML = `<h2>${symbol}</h2><p>Error al obtener datos: ${error.message}</p>`;
+      }
+    }
+  }
+</script>
+</body>
+</html>

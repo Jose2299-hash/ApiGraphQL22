@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Analizador gramatical con LanguageTool</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 900px; margin: auto; padding: 10px; }
+    textarea { width: 100%; height: 200px; }
+    #output { white-space: pre-wrap; background: #f0f0f0; padding: 10px; margin-top: 10px; border-radius: 5px; max-height: 400px; overflow-y: auto; }
+    button { margin-top: 10px; padding: 10px 20px; }
+    label, select { margin-top: 10px; display: block; }
+  </style>
+</head>
+<body>
+
+<h1>Analizador gramatical con LanguageTool</h1>
+<p>Pega aquí tu texto (máximo 2,000,000 caracteres, se procesará en fragmentos de hasta 20,000 caracteres):</p>
+<textarea id="inputText" maxlength="2000000"></textarea>
+
+<label for="lang">Selecciona idioma:</label>
+<select id="lang">
+  <!-- Lista representativa, puedes ampliarla -->
+  <option value="es" selected>Español</option>
+  <option value="en-US">Inglés (US)</option>
+  <option value="en-GB">Inglés (GB)</option>
+  <option value="de">Alemán</option>
+  <option value="fr">Francés</option>
+  <option value="it">Italiano</option>
+  <option value="pt">Portugués</option>
+  <option value="ru">Ruso</option>
+  <option value="zh">Chino</option>
+  <option value="ja">Japonés</option>
+  <option value="nl">Neerlandés</option>
+  <option value="pl">Polaco</option>
+  <option value="ar">Árabe</option>
+  <option value="sv">Sueco</option>
+  <option value="ca">Catalán</option>
+  <option value="cs">Checo</option>
+  <option value="fi">Finlandés</option>
+  <option value="tr">Turco</option>
+  <option value="el">Griego</option>
+  <option value="hu">Húngaro</option>
+  <option value="ro">Rumano</option>
+  <option value="uk">Ucraniano</option>
+  <option value="bg">Búlgaro</option>
+  <!-- ... más idiomas si quieres -->
+</select>
+
+<button onclick="analizar()">Analizar</button>
+
+<div id="output"></div>
+
+<script>
+  async function analizar() {
+    const inputText = document.getElementById('inputText').value.trim();
+    const lang = document.getElementById('lang').value || 'es';
+    const output = document.getElementById('output');
+    output.textContent = 'Procesando...';
+
+    if (!inputText) {
+      output.textContent = 'Por favor, ingresa un texto para analizar.';
+      return;
+    }
+
+    if(inputText.length > 2000000) {
+      output.textContent = 'El texto excede el límite máximo de 2,000,000 caracteres.';
+      return;
+    }
+
+    const maxChunkLength = 20000; // límite para API LT
+    const chunks = [];
+    for (let i = 0; i < inputText.length; i += maxChunkLength) {
+      chunks.push(inputText.substring(i, i + maxChunkLength));
+    }
+
+    let fullResults = [];
+
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i];
+      try {
+        const res = await fetch('https://api.languagetool.org/v2/check', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            text: chunk,
+            language: lang
+          })
+        });
+
+        if (!res.ok) {
+          output.textContent = `Error en la petición: ${res.status} ${res.statusText}`;
+          return;
+        }
+
+        const data = await res.json();
+        // Ajustamos offsets para reflejar posición en texto completo
+        data.matches.forEach(m => {
+          m.offset += i * maxChunkLength;
+          fullResults.push(m);
+        });
+
+        output.textContent = `Procesado fragmento ${i+1} de ${chunks.length}...`;
+      } catch (err) {
+        output.textContent = `Error al comunicarse con la API: ${err.message}`;
+        return;
+      }
+    }
+
+    if (fullResults.length === 0) {
+      output.textContent = 'No se encontraron errores ni sugerencias.';
+      return;
+    }
+
+    // Mostrar resultados
+    let report = `Se encontraron ${fullResults.length} problemas:\n\n`;
+
+    fullResults.forEach((match, idx) => {
+      report += `${idx+1}. Texto: "${inputText.substring(match.offset, match.offset + match.length)}"\n`;
+      report += `   Mensaje: ${match.message}\n`;
+      report += `   Categoría: ${match.rule.category.name}\n`;
+      report += `   Reglas: ${match.rule.description}\n`;
+      if (match.replacements.length > 0) {
+        report += `   Sugerencias: ${match.replacements.map(r => r.value).join(', ')}\n`;
+      }
+      report += '\n';
+    });
+
+    output.textContent = report;
+  }
+</script>
+
+</body>
+</html>

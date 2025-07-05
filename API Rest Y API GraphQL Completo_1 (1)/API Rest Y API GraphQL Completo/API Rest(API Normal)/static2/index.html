@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Publicaciones GraphQL FastAPI</title>
+</head>
+<body>
+  <h1>📝 Crear Nueva Publicación</h1>
+  <form id="form">
+    <input id="titulo" placeholder="Título" required />
+    <br /><br />
+    <textarea id="contenido" placeholder="Contenido" required></textarea>
+    <br /><br />
+    <button type="submit">Publicar</button>
+  </form>
+
+  <h2>📚 Lista de Publicaciones</h2>
+  <ul id="lista-publicaciones"></ul>
+
+  <script>
+    const form = document.getElementById("form");
+    const lista = document.getElementById("lista-publicaciones");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const titulo = document.getElementById("titulo").value;
+      const contenido = document.getElementById("contenido").value;
+
+      const mutation = `
+        mutation {
+          crearPublicacion(titulo: "${titulo}", contenido: "${contenido}") {
+            id
+            titulo
+            contenido
+          }
+        }
+      `;
+
+      const res = await fetch("/graphql", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: mutation }),
+      });
+
+      const data = await res.json();
+
+      if (data.data?.crearPublicacion) {
+        alert("✅ Publicación creada correctamente");
+        form.reset();
+        cargarPublicaciones();
+      } else {
+        alert("❌ Error al crear publicación");
+        console.error(data);
+      }
+    });
+
+    async function cargarPublicaciones() {
+      const query = `
+        query {
+          obtenerPublicaciones {
+            id
+            titulo
+            contenido
+          }
+        }
+      `;
+
+      const res = await fetch("/graphql", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query }),
+      });
+
+      const data = await res.json();
+
+      lista.innerHTML = "";
+      if (data.data?.obtenerPublicaciones) {
+        data.data.obtenerPublicaciones.forEach((pub) => {
+          const li = document.createElement("li");
+          li.innerHTML = `<strong>${pub.titulo}</strong>: ${pub.contenido}`;
+          lista.appendChild(li);
+        });
+      } else {
+        lista.innerHTML = "<li>No hay publicaciones</li>";
+      }
+    }
+
+    // Cargar publicaciones al iniciar
+    cargarPublicaciones();
+  </script>
+</body>
+</html>
+

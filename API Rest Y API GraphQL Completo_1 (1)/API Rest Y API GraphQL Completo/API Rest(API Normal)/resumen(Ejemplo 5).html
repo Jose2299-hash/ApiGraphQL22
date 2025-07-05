@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Buscador Multifuente Tecnológica</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 2rem;
+      background: #f0f0f0;
+    }
+    input, select, button {
+      padding: 0.5rem;
+      font-size: 1rem;
+      margin-right: 0.5rem;
+    }
+    .resultado {
+      margin-top: 1.5rem;
+      background: #fff;
+      padding: 1rem;
+      border-radius: 6px;
+      box-shadow: 0 0 8px rgba(0,0,0,0.1);
+      max-width: 900px;
+      clear: both;
+    }
+    img {
+      max-width: 150px;
+      float: right;
+      margin-left: 1rem;
+      border-radius: 8px;
+    }
+    a {
+      color: #0645ad;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <h1>Buscador Multifuente Tecnológica</h1>
+  <input type="text" id="termino" placeholder="Escribe un término..." />
+  <select id="fuente">
+    <option value="wikipedia">Wikipedia</option>
+    <option value="wikibooks">Wikibooks</option>
+    <option value="wikidata">Wikidata</option>
+    <option value="semanticscholar">Semantic Scholar</option>
+    <option value="core">CORE</option>
+    <option value="arxiv">ArXiv</option>
+    <option value="dblp">DBLP</option>
+    <option value="internetarchive">Internet Archive</option>
+    <option value="googlescholar">Google Scholar</option>
+  </select>
+  <button onclick="buscar()">Buscar</button>
+
+  <div id="resultado" class="resultado"></div>
+
+  <script>
+    async function buscar() {
+      const termino = document.getElementById('termino').value.trim();
+      const fuente = document.getElementById('fuente').value;
+      const resultado = document.getElementById('resultado');
+      resultado.innerHTML = "Buscando...";
+
+      if (!termino) {
+        resultado.innerHTML = "<p style='color:red;'>Por favor ingresa un término para buscar.</p>";
+        return;
+      }
+
+      try {
+        switch(fuente) {
+          case 'wikipedia':
+            {
+              // Wikipedia REST API para resumen
+              const lang = 'es';
+              const url = `https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(termino)}`;
+              const res = await fetch(url);
+              if(!res.ok) throw new Error('No se encontró info en Wikipedia');
+              const data = await res.json();
+              resultado.innerHTML = `
+                <h2>${data.title}</h2>
+                ${data.thumbnail ? `<img src="${data.thumbnail.source}" alt="${data.title}"/>` : ''}
+                <p><em>${data.description || ''}</em></p>
+                <p>${data.extract}</p>
+                <a href="https://${lang}.wikipedia.org/wiki/${encodeURIComponent(data.title)}" target="_blank" rel="noopener noreferrer">Leer más en Wikipedia</a>
+              `;
+            }
+            break;
+
+          case 'wikibooks':
+            {
+              // Similar a Wikipedia, usa el mismo dominio con prefijo wikibooks
+              const lang = 'es';
+              // No existe API REST para resumen en Wikibooks, hacemos link directo
+              resultado.innerHTML = `<a href="https://${lang}.wikibooks.org/wiki/${encodeURIComponent(termino)}" target="_blank" rel="noopener noreferrer">Buscar en Wikibooks</a></p>`;
+            }
+            break;
+
+          case 'wikidata':
+            {
+              // Consultar Wikidata por etiqueta usando SPARQL es complejo aquí, uso API para buscar entidades
+              // Simple búsqueda por término (español)
+              const url = `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(termino)}&language=es&format=json&origin=*`;
+              const res = await fetch(url);
+              if(!res.ok) throw new Error('Error en búsqueda Wikidata');
+              const data = await res.json();
+              if (!data.search.length) {
+                resultado.innerHTML = "<p>No se encontraron resultados en Wikidata.</p>";
+                return;
+              }
+              let html = '<h3>Resultados en Wikidata:</h3><ul>';
+              data.search.forEach(item => {
+                html += `<li><a href="https://www.wikidata.org/wiki/${item.id}" target="_blank" rel="noopener noreferrer">${item.label}</a> - ${item.description || 'Sin descripción'}</li>`;
+              });
+              html += '</ul>';
+              resultado.innerHTML = html;
+            }
+            break;
+
+          case 'semanticscholar':
+            {
+              // API pública Semantic Scholar, máximo 5 resultados
+              const url = `https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(termino)}&limit=5&fields=title,authors,year,url`;
+              const res = await fetch(url);
+              if (!res.ok) throw new Error('Error en Semantic Scholar');
+              const data = await res.json();
+              if (!data.data.length) {
+                resultado.innerHTML = "<p>No se encontraron resultados en Semantic Scholar.</p>";
+                return;
+              }
+              let html = `<h3>Resultados Semantic Scholar (máx 5):</h3><ul>`;
+              data.data.forEach(paper => {
+                const authors = paper.authors.map(a => a.name).join(', ');
+                html += `<li><a href="${paper.url}" target="_blank" rel="noopener noreferrer">${paper.title}</a> (${paper.year})<br><small>Autores: ${authors}</small></li>`;
+              });
+              html += `</ul><a href="https://www.semanticscholar.org/search?q=${encodeURIComponent(termino)}" target="_blank" rel="noopener noreferrer">Más en Semantic Scholar</a>`;
+              resultado.innerHTML = html;
+            }
+            break;
+
+          case 'core':
+            {
+              // API CORE requiere key, aquí enlace directo
+              resultado.innerHTML = `<a href="https://core.ac.uk/search?q=${encodeURIComponent(termino)}" target="_blank" rel="noopener noreferrer">Buscar en CORE</a></p>`;
+            }
+            break;
+
+          case 'arxiv':
+            {
+              // API Arxiv, búsqueda simple RSS en XML
+              const url = `https://export.arxiv.org/api/query?search_query=all:${encodeURIComponent(termino)}&start=0&max_results=5`;
+              const res = await fetch(url);
+              if (!res.ok) throw new Error('Error en búsqueda Arxiv');
+              const text = await res.text();
+              // Parsear XML con DOMParser
+              const parser = new DOMParser();
+              const xmlDoc = parser.parseFromString(text, "text/xml");
+              const entries = xmlDoc.getElementsByTagName('entry');
+              if(entries.length === 0) {
+                resultado.innerHTML = "<p>No se encontraron resultados en ArXiv.</p>";
+                return;
+              }
+              let html = `<h3>Resultados ArXiv (máx 5):</h3><ul>`;
+              for(let i=0; i<entries.length; i++) {
+                const entry = entries[i];
+                const title = entry.getElementsByTagName('title')[0].textContent.trim();
+                const summary = entry.getElementsByTagName('summary')[0].textContent.trim();
+                const link = entry.getElementsByTagName('id')[0].textContent;
+                html += `<li><a href="${link}" target="_blank" rel="noopener noreferrer">${title}</a><br><small>${summary.substring(0, 200)}...</small></li>`;
+              }
+              html += '</ul>';
+              resultado.innerHTML = html;
+            }
+            break;
+
+          case 'dblp':
+  {
+    const url = `https://dblp.org/search/publ/api?q=${encodeURIComponent(termino)}&format=json&h=5`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Error en búsqueda DBLP');
+    const data = await res.json();
+    const hits = data.result.hits.hit;
+    if (!hits || hits.length === 0) {
+      resultado.innerHTML = "<p>No se encontraron resultados en DBLP.</p>";
+      return;
+    }
+
+    let html = `<h3>Resultados DBLP (máx 5):</h3><ul>`;
+
+    hits.forEach(hit => {
+      const info = hit.info;
+      const title = info.title;
+      const url = info.url;
+
+      let autores = [];
+
+      // Manejo robusto de autores
+      if (Array.isArray(info.authors?.author)) {
+        autores = info.authors.author.map(a => typeof a === 'string' ? a : a.text);
+      } else if (typeof info.authors?.author === 'string') {
+        autores = [info.authors.author];
+      } else if (typeof info.authors?.author === 'object') {
+        autores = [info.authors.author.text || info.authors.author];
+      }
+
+      html += `
+        <li>
+          <a href="${url}" target="_blank" rel="noopener noreferrer">${title}</a><br>
+          <small><strong>Autores:</strong> ${autores.join(', ')}</small>
+        </li>
+      `;
+    });
+
+    html += '</ul>';
+    resultado.innerHTML = html;
+  }
+  break;
+
+
+          case 'internetarchive':
+            {
+              // Internet Archive link directo
+              resultado.innerHTML = `<a href="https://archive.org/search.php?query=${encodeURIComponent(termino)}" target="_blank" rel="noopener noreferrer">Buscar en Internet Archive</a>`;
+            }
+            break;
+
+          case 'googlescholar':
+            {
+              // Google Scholar no tiene API oficial
+              resultado.innerHTML = `<a href="https://scholar.google.com/scholar?q=${encodeURIComponent(termino)}" target="_blank" rel="noopener noreferrer">Buscar en Google Scholar</a><p>(No tiene API pública oficial)</p>`;
+            }
+            break;
+
+          default:
+            resultado.innerHTML = "<p>Fuente no soportada.</p>";
+        }
+      } catch (e) {
+        resultado.innerHTML = `<p style="color:red;">Error: ${e.message}</p>`;
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Traductor multilenguaje Lingva + Google</title>
+  <style>
+    body { font-family: sans-serif; padding: 30px; background: #f4f4f4; }
+    select, textarea, button {
+      width: 100%;
+      max-width: 600px;
+      margin-top: 10px;
+      padding: 10px;
+      font-size: 1rem;
+      box-sizing: border-box;
+    }
+    textarea {
+      resize: vertical;
+    }
+    #output {
+      background: white;
+      padding: 15px;
+      border-radius: 10px;
+      margin-top: 20px;
+      min-height: 60px;
+      font-size: 1.1rem;
+      line-height: 1.4;
+      white-space: pre-wrap;
+    }
+    #loading {
+      color: #555;
+      font-style: italic;
+    }
+    label {
+      font-weight: bold;
+      margin-top: 15px;
+      display: block;
+      max-width: 600px;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>🌐 Traductor multilenguaje Lingva + fallback Google</h2>
+
+  <label for="sourceLang">Idioma origen:</label>
+  <select id="sourceLang"></select>
+
+  <label for="targetLang">Idioma destino:</label>
+  <select id="targetLang"></select>
+
+  <textarea id="text" rows="6" placeholder="Escribe texto aquí..." maxlength="500000"></textarea>
+  <small id="charCount">0 / 500,000 caracteres</small>
+  <button onclick="traducir()">Traducir</button>
+
+  <div id="output"></div>
+
+  <script>
+    const idiomas = {
+      "af": "Afrikaans",
+      "sq": "Albanés",
+      "am": "Amárico",
+      "ar": "Árabe",
+      "hy": "Armenio",
+      "az": "Azerbaiyano",
+      "eu": "Vasco",
+      "be": "Bielorruso",
+      "bn": "Bengalí",
+      "bs": "Bosnio",
+      "bg": "Búlgaro",
+      "ca": "Catalán",
+      "ceb": "Cebuano",
+      "ny": "Chichewa",
+      "zh-CN": "Chino simplificado",
+      "zh-TW": "Chino tradicional",
+      "co": "Corso",
+      "hr": "Croata",
+      "cs": "Checo",
+      "da": "Danés",
+      "nl": "Holandés",
+      "en": "Inglés",
+      "eo": "Esperanto",
+      "et": "Estonio",
+      "tl": "Filipino",
+      "fi": "Finés",
+      "fr": "Francés",
+      "fy": "Frisón",
+      "gl": "Gallego",
+      "ka": "Georgiano",
+      "de": "Alemán",
+      "el": "Griego",
+      "gu": "Gujarati",
+      "ht": "Haitiano",
+      "ha": "Hausa",
+      "haw": "Hawaiano",
+      "he": "Hebreo",
+      "hi": "Hindi",
+      "hmn": "Hmong",
+      "hu": "Húngaro",
+      "is": "Islandés",
+      "ig": "Igbo",
+      "id": "Indonesio",
+      "ga": "Irlandés",
+      "it": "Italiano",
+      "ja": "Japonés",
+      "jw": "Javanés",
+      "kn": "Kannada",
+      "kk": "Kazajo",
+      "km": "Jemer",
+      "rw": "Kinyarwanda",
+      "ko": "Coreano",
+      "ku": "Kurdo (Kurmanji)",
+      "ky": "Kirguís",
+      "lo": "Lao",
+      "la": "Latín",
+      "lv": "Letón",
+      "lt": "Lituano",
+      "lb": "Luxemburgués",
+      "mk": "Macedonio",
+      "mg": "Malgache",
+      "ms": "Malayo",
+      "ml": "Malayalam",
+      "mt": "Maltés",
+      "mi": "Maorí",
+      "mr": "Maratí",
+      "mn": "Mongol",
+      "my": "Birmano",
+      "ne": "Nepalí",
+      "no": "Noruego",
+      "or": "Odia",
+      "ps": "Pastún",
+      "fa": "Persa",
+      "pl": "Polaco",
+      "pt": "Portugués",
+      "pa": "Panyabí",
+      "ro": "Rumano",
+      "ru": "Ruso",
+      "sm": "Samoano",
+      "gd": "Gaélico escocés",
+      "sr": "Serbio",
+      "st": "Sesotho",
+      "sn": "Shona",
+      "sd": "Sindhi",
+      "si": "Cingalés",
+      "sk": "Eslovaco",
+      "sl": "Esloveno",
+      "so": "Somalí",
+      "es": "Español",
+      "su": "Sundanés",
+      "sw": "Swahili",
+      "sv": "Sueco",
+      "tg": "Tayiko",
+      "ta": "Tamil",
+      "tt": "Tártaro",
+      "te": "Telugu",
+      "th": "Tailandés",
+      "tr": "Turco",
+      "tk": "Turcomano",
+      "uk": "Ucraniano",
+      "ur": "Urdu",
+      "ug": "Uigur",
+      "uz": "Uzbeco",
+      "vi": "Vietnamita",
+      "cy": "Galés",
+      "xh": "Xhosa",
+      "yi": "Yidis",
+      "yo": "Yoruba",
+      "zu": "Zulú"
+    };
+
+    const sourceSelect = document.getElementById('sourceLang');
+    const targetSelect = document.getElementById('targetLang');
+    const textarea = document.getElementById('text');
+    const charCount = document.getElementById('charCount');
+
+    function cargarIdiomas() {
+      for (const [code, name] of Object.entries(idiomas)) {
+        const option1 = document.createElement('option');
+        option1.value = code;
+        option1.textContent = name;
+        sourceSelect.appendChild(option1);
+
+        const option2 = document.createElement('option');
+        option2.value = code;
+        option2.textContent = name;
+        targetSelect.appendChild(option2);
+      }
+      sourceSelect.value = 'es';
+      targetSelect.value = 'en';
+    }
+    cargarIdiomas();
+
+    // Actualizar contador de caracteres
+    textarea.addEventListener('input', () => {
+      const length = textarea.value.length;
+      charCount.textContent = `${length.toLocaleString()} / 500,000 caracteres`;
+    });
+
+    function fetchWithTimeout(resource, options = {}) {
+      const { timeout = 8000 } = options;
+
+      return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error("Timeout de la petición")), timeout);
+
+        fetch(resource, options)
+          .then(response => {
+            clearTimeout(timer);
+            resolve(response);
+          })
+          .catch(err => {
+            clearTimeout(timer);
+            reject(err);
+          });
+      });
+    }
+
+    async function traducir() {
+      const texto = textarea.value.trim();
+      const output = document.getElementById("output");
+      const sourceLang = sourceSelect.value;
+      const targetLang = targetSelect.value;
+
+      if (!texto) return alert("Escribe algo primero.");
+      if (texto.length > 500000) return alert("El texto es demasiado largo. Máximo 500,000 caracteres.");
+      if (sourceLang === targetLang) return alert("El idioma origen y destino no pueden ser iguales.");
+
+      output.innerHTML = '<span id="loading">Traduciendo con Lingva...</span>';
+
+      async function traducirLingva(text) {
+        const url = `https://lingva.ml/api/v1/${sourceLang}/${targetLang}/${encodeURIComponent(text)}`;
+        const res = await fetchWithTimeout(url, { timeout: 15000 });
+        if (!res.ok) throw new Error(`Error Lingva: ${res.status}`);
+        const data = await res.json();
+        if (!data.translation) throw new Error("Respuesta Lingva inválida");
+        return data.translation;
+      }
+
+      async function traducirGoogle(text) {
+        output.innerHTML = '<span id="loading">Lingva falló, intentando con Google...</span>';
+        const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sourceLang}&tl=${targetLang}&dt=t&q=${encodeURIComponent(text)}`;
+        const res = await fetchWithTimeout(url, { timeout: 15000 });
+        if (!res.ok) throw new Error(`Error Google: ${res.status}`);
+        const data = await res.json();
+        if (!data[0]) throw new Error("Respuesta Google inválida");
+        return data[0].map(t => t[0]).join(" ");
+      }
+
+      try {
+        const traduccionLingva = await traducirLingva(texto);
+        output.innerHTML = `<b>Traducción (Lingva):</b> ${traduccionLingva}`;
+      } catch (errorLingva) {
+        console.warn("Lingva falló:", errorLingva);
+        try {
+          const traduccionGoogle = await traducirGoogle(texto);
+          output.innerHTML = `<b>Traducción (Google no oficial):</b> ${traduccionGoogle}`;
+        } catch (errorGoogle) {
+          console.error("Google falló también:", errorGoogle);
+          output.innerHTML = `<span style="color:red;">Error al traducir con Lingva y Google.</span>`;
+        }
+      }
+    }
+  </script>
+
+</body>
+</html>

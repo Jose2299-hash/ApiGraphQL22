@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Editor + Traducción + Análisis + GraphQL</title>
+
+<!-- CKEditor -->
+<script src="https://cdn.ckeditor.com/ckeditor5/35.0.1/classic/ckeditor.js"></script>
+
+<style>
+    #publicacion-notificacion {
+        background: linear-gradient(90deg, #E3F2FD, #BBDEFB);
+        color: #0D47A1;
+        font-size: 1.25rem;
+        padding: 1rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 500;
+        text-align: center;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        margin-bottom: 2rem;
+    }
+
+    .editor-container {
+        background-color: #ffffff;
+        border: 1.5px solid #bbb;
+        border-radius: 10px;
+        padding: 2rem;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        max-width: 700px;
+        margin: 0 auto;
+    }
+
+    .textarea, #content-editor, .ck-editor__editable {
+        color: inherit;
+        background-color: transparent;
+        border: 1.5px solid #bbb;
+        border-radius: 6px;
+        padding: 0.75rem;
+        font-size: 1rem;
+        font-family: inherit;
+        min-height: 200px;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .textarea:focus, #content-editor:focus, .ck-editor__editable:focus {
+        border-color: #0D47A1;
+        outline: none;
+        background-color: transparent;
+    }
+
+    button.button.is-primary {
+        font-weight: 600;
+        background-color: #0D47A1;
+        color: white;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 6px;
+        cursor: pointer;
+    }
+
+    button.button.is-primary:hover {
+        background-color: #094a8b;
+        color: #fff;
+    }
+
+    button.button.is-link {
+        background-color: #3273dc;
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        cursor: pointer;
+    }
+
+    button.button.is-link:hover {
+        background-color: #2759aa;
+    }
+
+    button.button.is-warning {
+        background-color: #ffdd57;
+        color: #363636;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        cursor: pointer;
+    }
+
+    button.button.is-warning:hover {
+        background-color: #f7d82a;
+    }
+
+    body.light-mode, html.light-mode {
+        background-color: #E3F2FD;
+        color: #2C3E50;
+        font-family: Arial, sans-serif;
+        padding: 2rem 1rem;
+    }
+
+    body.dark-mode, html.dark-mode {
+        background-color: #121212;
+        color: #ECEFF1;
+        font-family: Arial, sans-serif;
+        padding: 2rem 1rem;
+    }
+
+    body.dark-mode .editor-container {
+        background-color: #263238;
+        border-color: #455A64;
+    }
+
+    body.dark-mode .textarea,
+    body.dark-mode #content-editor,
+    body.dark-mode .ck-editor__editable {
+        border-color: #455A64;
+        background-color: #37474F;
+        color: #ECEFF1 !important;
+    }
+
+    body.dark-mode .textarea:focus,
+    body.dark-mode #content-editor:focus,
+    body.dark-mode .ck-editor__editable:focus {
+        border-color: #FFEB3B;
+        background-color: #455A64;
+        color: #FFF !important;
+    }
+
+    body.dark-mode button.button.is-primary {
+        background-color: #FFEB3B;
+        color: #121212;
+    }
+
+    body.dark-mode button.button.is-primary:hover {
+        background-color: #FDD835;
+    }
+
+    hr.my-5 {
+        margin: 3rem 0;
+        border: none;
+        border-top: 1px solid #ccc;
+    }
+
+    .field {
+        margin-bottom: 1rem;
+    }
+
+    label.label {
+        font-weight: 600;
+        display: block;
+        margin-bottom: 0.3rem;
+    }
+
+    select.select {
+        width: 100%;
+        padding: 0.5rem;
+        border-radius: 6px;
+        border: 1.5px solid #bbb;
+        font-size: 1rem;
+    }
+
+    #charCount {
+        font-size: 0.9rem;
+        color: #666;
+    }
+
+    #output {
+        white-space: pre-wrap;
+        background: #f5f5f5;
+        padding: 1rem;
+        border-radius: 8px;
+        min-height: 100px;
+    }
+
+    ul.errores {
+        list-style: none;
+        padding-left: 0;
+    }
+
+    table.table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 1rem;
+    }
+
+    table.table th, table.table td {
+        border: 1px solid #ccc;
+        padding: 0.5rem;
+        text-align: left;
+    }
+</style>
+
+</head>
+<body class="light-mode">
+
+<div class="container mb-6 mt-6">
+    <div id="publicacion-notificacion">
+        ✍️ Escribe una <strong>publicación</strong>.
+    </div>
+</div>
+
+<div class="editor-container">
+    <form id="formulario" novalidate>
+        <textarea id="content-editor" name="content" class="textarea" placeholder="Escribe tu contenido aquí..."></textarea>
+
+        <button type="submit" class="button is-primary mt-5">Guardar</button>
+
+        <!-- Traductor -->
+        <hr class="my-5">
+        <h3>🌐 Traducir contenido</h3>
+
+        <div class="field">
+            <label class="label" for="sourceLang">Idioma origen:</label>
+            <select id="sourceLang" class="select"></select>
+        </div>
+
+        <div class="field">
+            <label class="label" for="targetLang">Idioma destino:</label>
+            <select id="targetLang" class="select"></select>
+        </div>
+
+        <button type="button" class="button is-link mt-3" onclick="traducir()">Traducir texto del editor</button>
+
+        <div id="charCount" class="mt-2 has-text-grey">0 / 500,000 caracteres</div>
+
+        <div id="output" class="mt-4 p-4 box has-background-light"></div>
+
+        <!-- Invisible textarea para análisis -->
+        <textarea id="text" style="display:none;"></textarea>
+    </form>
+</div>
+
+<!-- Análisis Morfosintáctico y Ortográfico -->
+<hr class="my-5">
+<h3>🔍 Análisis Morfosintáctico y Ortográfico</h3>
+
+<button type="button" class="button is-warning mt-3" onclick="analizar()">Analizar contenido del editor</button>
+
+<ul id="errores" class="errores mt-4" style="color:red;"></ul>
+
+<table id="resultadoTabla" class="table" style="display:none;">
+  <thead>
+    <tr>
+      <th>Texto</th>
+      <th>POS</th>
+      <th>Lema</th>
+      <th>Características</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<script>
+let editor;
+
+document.addEventListener('DOMContentLoaded', () => {
+    ClassicEditor
+        .create(document.querySelector('#content-editor'))
+        .then(ed => {
+            editor = ed;
+
+            ed.model.document.on('change:data', () => {
+                const text = editor.getData().replace(/<[^>]*>/g, '').trim();
+                document.getElementById('charCount').textContent = `${text.length.toLocaleString()} / 500,000 caracteres`;
+            });
+        })
+        .catch(error => console.error(error));
+
+    cargarIdiomas();
+});
+
+const idiomas = {
+    "es": "Español", "en": "Inglés", "fr": "Francés", "de": "Alemán", "it": "Italiano",
+    "pt": "Portugués", "ru": "Ruso", "zh-CN": "Chino", "ar": "Árabe", "ja": "Japonés",
+    "la": "Latín"
+};
+
+function cargarIdiomas() {
+    const source = document.getElementById('sourceLang');
+    const target = document.getElementById('targetLang');
+
+    for (const [code, name] of Object.entries(idiomas)) {
+        const opt1 = document.createElement('option');
+        opt1.value = code; opt1.textContent = name;
+        const opt2 = opt1.cloneNode(true);
+        source.appendChild(opt1);
+        target.appendChild(opt2);
+    }
+
+    source.value = 'es';
+    target.value = 'en';
+}
+
+async function traducir() {
+    const output = document.getElementById('output');
+    const sourceLang = document.getElementById('sourceLang').value;
+    const targetLang = document.getElementById('targetLang').value;
+
+    const rawHtml = editor.getData();
+    const text = rawHtml.replace(/<[^>]*>/g, '').trim();
+
+    if (!text) return alert("Escribe algo primero.");
+    if (text.length > 500000) return alert("Texto muy largo.");
+    if (sourceLang === targetLang) return alert("El idioma origen y destino no pueden ser iguales.");
+
+    output.innerHTML = '<i>Traduciendo con Lingva...</i>';
+
+    try {
+        const t = await fetchLingva(text, sourceLang, targetLang);
+        output.innerHTML = `<b>Lingva:</b><br>${t}`;
+    } catch (e1) {
+        console.warn("Lingva falló:", e1);
+        try {
+            const t = await fetchGoogle(text, sourceLang, targetLang);
+            output.innerHTML = `<b>Google Translate:</b><br>${t}`;
+        } catch (e2) {
+            console.error("Google también falló:", e2);
+            output.innerHTML = `<span style="color:red;">Error al traducir con Lingva y Google.</span>`;
+        }
+    }
+}
+
+async function fetchLingva(text, from, to) {
+    const url = `https://lingva.ml/api/v1/${from}/${to}/${encodeURIComponent(text)}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (!data.translation) throw new Error("Sin traducción");
+    return data.translation;
+}
+
+async function fetchGoogle(text, from, to) {
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${from}&tl=${to}&dt=t&q=${encodeURIComponent(text)}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    return data[0].map(t => t[0]).join(" ");
+}
+
+async function analizar() {
+  const editorText = editor.getData().replace(/<[^>]*>/g, '').trim();
+  const tabla = document.getElementById('resultadoTabla');
+  const tbody = tabla.querySelector('tbody');
+  const erroresUL = document.getElementById('errores');
+  tabla.style.display = "none";
+  tbody.innerHTML = "";
+  erroresUL.innerHTML = "";
+
+  if (!editorText) {
+    alert("Por favor, escribe algún texto para analizar.");
+    return;
+  }
+
+  try {
+    // Backend local que analiza con Stanza
+    const resStanza = await fetch('http://127.0.0.1:8000/analizar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ texto: editorText })
+    });
+
+    if (!resStanza.ok) throw new Error("Error al contactar el backend");
+
+    const data = await resStanza.json();
+
+    data.analisis.forEach(palabra => {
+      const fila = document.createElement('tr');
+      fila.innerHTML = `
+        <td>${palabra.texto}</td>
+        <td>${palabra.pos}</td>
+        <td>${palabra.lemma}</td>
+        <td>${palabra.caracteristicas}</td>
+      `;
+      tbody.appendChild(fila);
+    });
+
+    if (data.analisis.length > 0) {
+      tabla.style.display = "table";
+    }
+
+    // LanguageTool
+    const resLT = await fetch('https://api.languagetoolplus.com/v2/check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        text: editorText,
+        language: 'es',
+      })
+    });
+
+    if (!resLT.ok) throw new Error("Error al contactar LanguageTool");
+
+    const errores = await resLT.json();
+
+    if (errores.matches.length === 0) {
+      const li = document.createElement('li');
+      li.textContent = "✅ Sin errores detectados.";
+      erroresUL.appendChild(li);
+    } else {
+      errores.matches.forEach(error => {
+        const li = document.createElement('li');
+        li.innerHTML = `🔴 <strong>${error.message}</strong> – <em>${error.context.text}</em>`;
+        erroresUL.appendChild(li);
+      });
+    }
+
+  } catch (error) {
+    alert("Error: " + error.message);
+  }
+}
+
+document.getElementById('formulario').addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    const contenidoHTML = editor.getData(); // CKEditor content HTML
+
+    const query = `
+        mutation CrearPublicacion($contenido: String!) {
+            crearPublicacion(contenido: $contenido) {
+                id
+                contenido
+            }
+        }
+    `;
+
+    const variables = { contenido: contenidoHTML };
+
+    try {
+        const res = await fetch('http://localhost:8000/graphql', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query, variables }),
+        });
+
+        const json = await res.json();
+
+        if (json.errors) {
+            alert('Error GraphQL: ' + json.errors[0].message);
+            return;
+        }
+
+        const pub = json.data.crearPublicacion;
+
+        alert(`Publicación creada con ID: ${pub.id}`);
+
+        // Opcional: limpiar editor
+        editor.setData('');
+
+        // Actualizar notificación
+        document.getElementById('publicacion-notificacion').textContent =
+          `✔️ Publicación creada con ID: ${pub.id}`;
+
+    } catch (error) {
+        alert('Error al enviar GraphQL: ' + error.message);
+    }
+});
+</script>
+
+</body>
+</html>

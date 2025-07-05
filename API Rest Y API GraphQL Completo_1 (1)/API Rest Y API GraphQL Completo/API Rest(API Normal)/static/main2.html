@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Crear Publicación</title>
+</head>
+<body>
+  <h1>📝 Crear Nueva Publicación</h1>
+  <form id="form">
+    <input type="text" id="titulo" placeholder="Título" required /><br /><br />
+    <textarea id="contenido" placeholder="Contenido" required></textarea><br /><br />
+    <button type="submit">Publicar</button>
+  </form>
+
+  <script>
+    const form = document.getElementById("form");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const titulo = document.getElementById("titulo").value;
+      const contenido = document.getElementById("contenido").value;
+
+      const query = `
+        mutation {
+          crearPublicacion(titulo: "${titulo}", contenido: "${contenido}") {
+            id
+            titulo
+            contenido
+          }
+        }
+      `;
+
+      const res = await fetch("/graphql", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query }),
+      });
+
+      const data = await res.json();
+      if (data.data?.crearPublicacion) {
+        alert("✅ Publicación creada correctamente");
+        form.reset();
+      } else {
+        alert("❌ Error al crear publicación");
+        console.error(data.errors || data);
+      }
+    });
+  </script>
+</body>
+</html>

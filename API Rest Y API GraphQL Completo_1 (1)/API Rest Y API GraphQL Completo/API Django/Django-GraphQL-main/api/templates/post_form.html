@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Crear Publicación</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css" />
+  <meta name="csrf-token" content="{{ csrf_token }}" />
+  <style>
+    body {
+      padding: 2rem;
+    }
+  </style>
+</head>
+<body>
+  <h1 class="title">📝 Crear una publicación</h1>
+
+  <form id="formulario">
+    <div class="field">
+      <label class="label">Título</label>
+      <div class="control">
+        <input class="input" type="text" id="titulo" required />
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="label">Contenido</label>
+      <div class="control">
+        <textarea class="textarea" id="contenido" required></textarea>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="label">Categoría</label>
+      <div class="control">
+        <select id="categoria" required>
+          {% for cat in categories %}
+            <option value="{{ cat.id }}">{{ cat.nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="control mt-3">
+      <button class="button is-primary" type="submit">📤 Publicar</button>
+    </div>
+  </form>
+
+  <script>
+    const csrftoken = document.querySelector('meta[name="csrf-token"]').content;
+
+    document.getElementById("formulario").addEventListener("submit", async e => {
+      e.preventDefault();
+
+      const titulo = document.getElementById("titulo").value.trim();
+      const contenido = document.getElementById("contenido").value.trim();
+      const categoria = document.getElementById("categoria").value;
+
+      if (!titulo || !contenido || !categoria) {
+        alert("Por favor completa todos los campos.");
+        return;
+      }
+
+      const mutation = `
+        mutation {
+          crearPublicacion(titulo: "${titulo}", contenido: "${contenido}", categoriaId: ${categoria}) {
+            publicacion {
+              id
+              titulo
+              contenido
+              creadoEn
+            }
+          }
+        }
+      `;
+
+      try {
+        const response = await fetch("/graphql/", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": csrftoken
+          },
+          body: JSON.stringify({ query: mutation })
+        });
+
+        const json = await response.json();
+
+        if (json.errors) {
+          console.error("Errores GraphQL:", json.errors);
+          alert("Error al crear la publicación: " + json.errors.map(e => e.message).join(", "));
+          return;
+        }
+
+        // ✅ Redireccionar después de crear la publicación
+        window.location.href = "/publicaciones.html";
+
+      } catch (error) {
+        console.error("Error de red o servidor:", error);
+        alert("Ocurrió un error al conectar con el servidor.");
+      }
+    });
+  </script>
+</body>
+</html>

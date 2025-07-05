@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Gráficas y Simulaciones Numéricas con World Bank API</title>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.11.0/math.js"></script>
+  <style>
+    body { font-family: sans-serif; margin: 20px; }
+    select, button, input { margin: 5px 5px 10px 0; padding: 5px; }
+    .chart-container { margin-top: 30px; }
+    .col-config { margin-bottom: 10px; }
+    .config-label { margin-right: 10px; }
+   /* CSS para contenedor gráfico más grande */
+.chart-container {
+  margin-top: 30px;
+  width: 1600px;
+  height: 1000px;
+}
+
+  </style>
+</head>
+<body>
+
+  <h1>📈 Gráficas y Simulaciones Numéricas con World Bank API</h1>
+
+  <div>
+    <label for="countryCode">Código de país (ej. MEX, USA, BRA):</label>
+    <input type="text" id="countryCode" maxlength="3" value="MEX" />
+  </div>
+
+  <div>
+    <label for="indicator">Indicador:</label>
+    <select id="indicator">
+      <option value="NY.GDP.MKTP.CD">PIB (Producto Interno Bruto, USD)</option>
+      <option value="SP.POP.TOTL">Población total</option>
+      <option value="SL.UEM.TOTL.ZS">Tasa de desempleo (%)</option>
+      <option value="FP.CPI.TOTL.ZG">Inflación anual (%)</option>
+      <option value="BX.KLT.DINV.CD.WD">Inversión extranjera directa (USD)</option>
+    </select>
+  </div>
+
+  <button onclick="consultarAPI()">Obtener y graficar datos</button>
+
+  <div id="columnConfig"></div>
+
+  <div class="col-config" style="display:none;" id="chartConfig">
+    <label for="chartType">Tipo de Gráfica:</label>
+    <select id="chartType">
+      <option value="bar">Barras</option>
+      <option value="line" selected>Línea</option>
+      <option value="scatter">Dispersión con Regresión</option>
+      <option value="pie">Pastel (solo un año)</option>
+    </select>
+    <button onclick="generarGrafica()">Graficar</button>
+  </div>
+
+  <div id="chart" class="chart-container"></div>
+  <div id="simulacion" class="chart-container"></div>
+
+  <script>
+    let datosProcesados = null;
+
+    async function consultarAPI() {
+      const country = document.getElementById("countryCode").value.trim().toUpperCase();
+      const indicator = document.getElementById("indicator").value;
+
+      if (!country || !indicator) return alert("Ingresa código de país e indicador.");
+
+      // Mostrar cargando
+      document.getElementById("chart").innerHTML = "Cargando datos...";
+      document.getElementById("simulacion").innerHTML = "";
+      document.getElementById("columnConfig").innerHTML = "";
+      document.getElementById("chartConfig").style.display = "none";
+
+      // API World Bank URL para indicadores
+      // Endpoint devuelve paginado, tomamos la primera página con hasta 100 resultados
+      const url = `https://api.worldbank.org/v2/country/${country}/indicator/${indicator}?format=json&per_page=100`;
+
+      try {
+        const resp = await fetch(url);
+        const data = await resp.json();
+
+        if (!data || !data[1] || data[1].length === 0) {
+          document.getElementById("chart").innerHTML = "No hay datos disponibles para este país/indicador.";
+          return;
+        }
+
+        // Procesar datos: extraemos año y valor, filtramos null
+        let rows = [["Año", indicator]];
+        data[1].forEach(item => {
+          if (item.value !== null) {
+            rows.push([item.date, item.value]);
+          }
+        });
+
+        // Invertir para que vaya año ascendente
+        rows = [rows[0]].concat(rows.slice(1).reverse());
+
+        datosProcesados = rows;
+        mostrarConfigColumnas();
+      } catch (error) {
+        document.getElementById("chart").innerHTML = "Error al obtener datos.";
+        console.error(error);
+      }
+    }
+
+    function mostrarConfigColumnas() {
+      const rows = datosProcesados;
+      const headers = rows[0];
+      const configDiv = document.getElementById("columnConfig");
+      configDiv.innerHTML = "<h3>Selecciona el tipo de cada variable:</h3>";
+      headers.forEach((header) => {
+        const div = document.createElement("div");
+        div.className = "col-config";
+        const label = document.createElement("label");
+        label.className = "config-label";
+        label.textContent = header;
+        const select = document.createElement("select");
+        select.setAttribute("data-col", header);
+        select.innerHTML = `
+          <option value="ignore">Ignorar</option>
+          <option value="x">Eje X</option>
+          <option value="y" selected>Eje Y</option>
+        `;
+        // Sugerimos asignar el primer columna como X y la segunda como Y por defecto
+        if (header === rows[0][0]) select.value = "x";
+        div.appendChild(label);
+        div.appendChild(select);
+        configDiv.appendChild(div);
+      });
+      document.getElementById("chartConfig").style.display = "block";
+    }
+
+    function generarGrafica() {
+      if (!datosProcesados) return alert("No hay datos para graficar.");
+
+      const rows = datosProcesados;
+      const headers = rows[0];
+      const dataRows = rows.slice(1);
+      const selects = document.querySelectorAll("#columnConfig select");
+      const roles = {};
+      selects.forEach(s => { roles[s.getAttribute("data-col")] = s.value; });
+      const xCol = Object.entries(roles).find(([_, tipo]) => tipo === "x")?.[0];
+      const yCols = Object.entries(roles).filter(([_, tipo]) => tipo === "y").map(([col]) => col);
+      const tipoGrafico = document.getElementById("chartType").value;
+      const datos = dataRows.map(r => Object.fromEntries(headers.map((h, i) => [h, r[i]])));
+      let trazas = [];
+
+      if (tipoGrafico === "pie") {
+        if (yCols.length !== 1) return alert("Solo una columna Y para gráfica de pastel.");
+        trazas.push({
+          type: 'pie',
+          labels: datos.map(d => d[xCol]),
+          values: datos.map(d => +d[yCols[0]]),
+          name: yCols[0]
+        });
+      } else {
+        yCols.forEach(col => {
+          const x = datos.map(d => d[xCol]);
+          const y = datos.map(d => parseFloat(d[col]));
+          let traza = {
+            x: x,
+            y: y,
+            name: col,
+            type: tipoGrafico === 'line' ? 'scatter' : tipoGrafico,
+            mode: tipoGrafico === 'line' ? 'lines+markers' : 'markers'
+          };
+          trazas.push(traza);
+
+          if (tipoGrafico === 'scatter') {
+            let n = x.length;
+            let xnum = x.map(Number), ynum = y;
+            let sx = math.sum(xnum), sy = math.sum(ynum);
+            let sxy = math.dot(xnum, ynum), sx2 = math.dot(xnum, xnum);
+            let m = (n * sxy - sx * sy) / (n * sx2 - sx * sx);
+            let b = (sy - m * sx) / n;
+            let y_pred = xnum.map(val => m * val + b);
+            trazas.push({
+              x: xnum, y: y_pred, name: `Regresión ${col}`,
+              mode: 'lines', type: 'scatter', line: { dash: 'dot' }
+            });
+
+            // Simulación simple
+            let predicciones = [];
+            for (let i = 1; i <= 5; i++) {
+              let anio = Number(xnum[xnum.length - 1]) + i;
+              let valor = m * anio + b;
+              predicciones.push([anio, valor]);
+            }
+            mostrarSimulacion(col, predicciones);
+          }
+        });
+      }
+
+      Plotly.newPlot("chart", trazas, { title: 'Gráfica dinámica', xaxis: { title: xCol } });
+    }
+
+    function mostrarSimulacion(variable, datos) {
+      const div = document.getElementById("simulacion");
+      div.innerHTML = `<h3>Simulación futura para: ${variable}</h3><table border="1" cellpadding="5"><tr><th>Año</th><th>Valor estimado</th></tr>` +
+        datos.map(([x, y]) => `<tr><td>${x}</td><td>${y.toFixed(2)}</td></tr>`).join('') + '</table>';
+    }
+
+Plotly.newPlot("chart", trazas, {
+  title: 'Gráfica dinámica',
+  xaxis: { title: xCol, autorange: true },
+  yaxis: { autorange: true },
+  width: 1600,
+  height: 1000,
+  margin: { t: 80, b: 80, l: 80, r: 80 }  // márgenes para evitar recortes
+});
+
+
+  </script>
+</body>
+</html>

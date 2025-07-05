@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Frontend para MiModelo API</title>
+</head>
+<body>
+  <h1>Frontend de MiModelo API</h1>
+  
+  <form id="formulario">
+    <input type="text" id="nombre" placeholder="Nombre" required />
+    <br />
+    <textarea id="descripcion" placeholder="Descripción"></textarea>
+    <br />
+    <button type="submit">Crear nuevo</button>
+  </form>
+
+  <h2>Lista de Items</h2>
+  <ul id="lista"></ul>
+
+  <script>
+    const lista = document.getElementById('lista');
+    const form = document.getElementById('formulario');
+
+    // Función para cargar y mostrar items
+    async function cargarItems() {
+      lista.innerHTML = '';
+      const res = await fetch('/api/mimodelo/');
+      const data = await res.json();
+      data.forEach(item => {
+        const li = document.createElement('li');
+        li.textContent = `${item.nombre} - ${item.descripcion}`;
+        lista.appendChild(li);
+      });
+    }
+
+    // Cargar inicialmente
+    cargarItems();
+
+    // Crear nuevo item al enviar formulario
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      const nombre = document.getElementById('nombre').value;
+      const descripcion = document.getElementById('descripcion').value;
+      await fetch('/api/mimodelo/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nombre, descripcion }),
+      });
+      form.reset();
+      cargarItems();
+    });
+  </script>
+</body>
+</html>
